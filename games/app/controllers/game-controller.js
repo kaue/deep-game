@@ -26,6 +26,7 @@ const GameLearn = require('../../../learn');
 const _ = require('underscore');
 var playerAI = null;
 var ai = null;
+var stupidCount = 0;
 class GameController {
 
     constructor() {
@@ -122,48 +123,118 @@ class GameController {
         }
 
         if (playerAI) {
-            var board = this.boardOccupancyService.getBoard();
+            var board = this.boardOccupancyService.board.map((coordinateRow) => {
+                return coordinateRow.map((coordinateAttribute) => {
+                    var index = 0;
+                    var binary = "";
+                    for (var attr in coordinateAttribute) {
+                        if (attr == '_playerIdsWithHead')
+                            binary += coordinateAttribute[attr].length > 0 ? "1" : "0";
+                        else
+                            binary += coordinateAttribute[attr] ? "1" : "0";
+                    }
+                    return parseInt(binary, 2);
+                })
+            });
+            require('console.table');
+
+            var playerPosition = playerAI._segments[0];
+            var foodList = this.foodService.getFood();
+            var foodArray = [];
+            for (var foodName in foodList) {
+                var food = foodList[foodName];
+                var xDistance = playerPosition.x - food.coordinate.x;
+                var yDistance = playerPosition.y - food.coordinate.y;
+
+                foodArray.push({
+                    distance: Math.abs(playerPosition.x - food.coordinate.x) + Math.abs(playerPosition.y - food.coordinate.y),
+                    //x: playerPosition.x - food.coordinate.x,
+                    //y: playerPosition.y - food.coordinate.y
+                    needLeft: xDistance > 0,
+                    needRight: xDistance < 0,
+                    needUp: yDistance > 0,
+                    needDown: yDistance < 0
+                    //x: food.coordinate.x,
+
+                    //y: food.coordinate.y
+                });
+            }
+
+            foodArray = _.sortBy(foodArray, 'distance').slice(0, 10);
+            var direction = '';
+            var directionName = ['esquerda', 'direita', 'cima', 'baixo'];
+
+            function getDirectionIndex(coords) {
+                if (coords.x == -1)
+                    return 0;
+                else if (coords.x == 1)
+                    return 1;
+                else if (coords.y == -1)
+                    return 2;
+                else if (coords.y == 1)
+                    return 3;
+            };
+            var direction = getDirectionIndex(playerAI.directionBeforeMove);
+
             var metrics = {
                 size: playerAI.growAmount + playerAI._segments.length,
-                direction: playerAI.direction,
                 moveCounter: playerAI.moveCounter,
-                directionBefore: playerAI.directionBefore,
+                direction: direction,
+                //directionBeforeMove: playerAI.directionBeforeMove,
                 segments: playerAI._segments,
-                board: board
+                position: playerPosition,
+                closestFoodDistance: foodArray[0].distance,
+                closestFood: {needLeft: foodArray[0].needLeft, needRight: foodArray[0].needRight, needUp: foodArray[0].needUp, needDown: foodArray[0].needDown},
+                stupidCount: stupidCount
             };
+
+            var validMoves = GameControlsService.getValidNextMove(playerAI.directionBeforeMove);
+
             if (!ai) ai = new GameLearn({
-                file: 'snakeNetwork.json',
+                file: 'snakeNetwork3.json',
                 metrics: metrics,
                 commands: {
                     moveUp: () => {
+                        if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.UP) == null) return stupidCount += 1;
                         console.log("Goin up...");
                         playerAI.changeDirection(Direction.UP);
                     },
                     moveDown: () => {
+                        if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.DOWN) == null) return stupidCount += 1;
                         console.log("Goin down...");
                         playerAI.changeDirection(Direction.DOWN);
                     },
                     moveLeft: () => {
+                        if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.LEFT) == null) return stupidCount += 1;
                         console.log("Goin to the left...");
                         playerAI.changeDirection(Direction.LEFT);
                     },
                     moveRight: () => {
+                        if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.RIGHT) == null) return stupidCount += 1;
                         console.log("Goin to the right...");
                         playerAI.changeDirection(Direction.RIGHT);
                     },
-                    /*wait: () => {
+                    wait: () => {
                         console.log("Waiting...");
-                    }*/
+                    }
                 },
                 score: {
                     size: {
                         diff: 1,
-                        score: 3
+                        score: 1
                     },
                     moveCounter: {
                         diff: 1,
                         score: 1,
-                        disableBiggerDifference: true,
+                        disableBiggerDifference: true
+                    },
+                    closestFoodDistance: {
+                        diff: -1,
+                        score: 1
+                    },
+                    stupidCount: {
+                        diff: -1,
+                        score: 1
                     }
                 }
             });
@@ -189,7 +260,7 @@ class GameController {
         };
         this.notificationService.broadcastGameState(gameState);
 
-        setTimeout(this.runGameCycle.bind(this), 100);
+        setTimeout(this.runGameCycle.bind(this), 500);
     }
 
     /*******************************

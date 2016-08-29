@@ -43,6 +43,7 @@ var metricScore = {
 var winPos = 200;
 
 var ai = new GameLearn({
+    file: 'test.json',
     metrics: metrics,
     commands: commands,
     score: metricScore

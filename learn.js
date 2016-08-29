@@ -35,17 +35,19 @@ const objectToArray = (object) => Object.keys(object).map((key) => object[key]);
 class GameLearn {
     constructor(options) {
         console.log("Neural network setup started...");
+        var self = this;
         this._lastNetworkOutputIndex = null;
         this._lastMetrics = null;
         this._lastNetworkInput = [];
         this._networkInputMap = [];
         this._networkInputValueMap = [];
         this._networkOutputTrustChance = 15;
-        //console.log(fs.accessSync(options.file))
-        //if(options.file && fs.statSync(options.file))
+        this._started = new Date();
+        this._totalBad = 0;
+        this._totalGood = 0;
         if (!options || !options.metrics || !options.commands) throw new Error('Metrics and Commands settings are required to create a network.');
         if (objectSize(options.metrics) == 0 || objectSize(options.commands) == 0) throw new Error('At least one metric and one command are required.');
-
+        this.file = options.file;
         this.metrics = options.metrics;
         this.commands = options.commands;
         this.score = _.extend(options.score || {}, DefaultScore);
@@ -57,18 +59,26 @@ class GameLearn {
         var networkInput = this._mapNetworkInput(options.metrics);
 
         var inputLayer = new Layer(networkInput.length);
-        var hiddenLayer = new Layer(10);
+        var hiddenLayer = new Layer(50);
+        var hiddenLayer2 = new Layer(50);
         var outputLayer = new Layer(objectSize(options.commands));
 
         inputLayer.project(hiddenLayer);
-        hiddenLayer.project(outputLayer);
+        hiddenLayer.project(hiddenLayer2);
+        hiddenLayer2.project(outputLayer);
 
         this.network = new Network({
             input: inputLayer,
-            hidden: [hiddenLayer],
+            hidden: [hiddenLayer, hiddenLayer2],
             output: outputLayer
         });
         this.trainer = new Trainer(this.network);
+        if(options.file) this._load(options.file, () => {
+            (function save() {
+                self._save(self.file, () => setTimeout(save, 120000));
+            })();
+        });
+
         console.log("Network generated: input(%s) hidden(?) output(%s)", networkInput.length, objectSize(options.commands))
     }
 
@@ -85,7 +95,7 @@ class GameLearn {
         console.log("Feeding network with %s inputs...", networkInput.length);
         // Get network output        
         var networkOutput = this.network.activate(networkInput);
-        var maxRandomInt = parseInt(100 - self._networkOutputTrustChance);
+        var maxRandomInt = 0;
         var networkOutputMap = networkOutput.map(function (output, index) {
             var chance = parseInt(output * 100);
             maxRandomInt += chance;
@@ -105,15 +115,15 @@ class GameLearn {
             var currentOutput = networkOutputMap[outputIndex];
             var formula = (n) => 1 / 2 * n * (n + 1);
 
-            if (outputIndex > 0)
-                currentOutput.chance += (100 - self._networkOutputTrustChance) / formula(networkOutput.length - 1) * (networkOutput.length - outputIndex);
+            //if (outputIndex > 0)
+            //      currentOutput.chance += (100 - self._networkOutputTrustChance) / formula(networkOutput.length - 1) * (networkOutput.length - outputIndex);
             totalChance += currentOutput.chance;
             if (randomInt <= totalChance) {
                 selectedOutput = outputIndex;
                 break;
             }
         }
-        networkOutputMap.forEach((output) => console.log("%s% chance of sending %s() with %s% trust", parseInt(output.chance), Object.keys(self.commands)[output.index].blue, parseInt(output.value * 100)));
+        networkOutputMap.forEach((output) => console.log("%s% chance of sending %s()", parseInt(output.chance), Object.keys(self.commands)[output.index].blue));
         // Get the biggest network output index        
         var selectedNetworkOutputIndex = networkOutputMap[selectedOutput].index;
         // Map the output to the correct command function
@@ -184,22 +194,24 @@ class GameLearn {
             } else if (difference < 0) {
                 score += scoreHelper.score * (scoreHelper.diff * -1);
             }
-
             metricIndex += 1;
         });
         var trustUpdate = TrustChanceChange * (lastNetworkOutputSortIndex + 1);
 
         var propperNetworkOutput = [];
-        if (score >= 0) {
+        if (score > 0) {
+            this._totalGood += 1;
             propperNetworkOutput = Array.apply(null, Array(objectSize(this.commands))).map(Number.prototype.valueOf, 0);
             propperNetworkOutput[lastNetworkOutputIndex] = 1;
             this._networkOutputTrustChance += lastNetworkOutputSortIndex == 0 ? trustUpdate : trustUpdate * -1;
         } else {
+            this._totalBad += 1;
             propperNetworkOutput = Array.apply(null, Array(objectSize(this.commands))).map(Number.prototype.valueOf, 1);
             propperNetworkOutput[lastNetworkOutputIndex] = 0;
             this._networkOutputTrustChance += lastNetworkOutputSortIndex == 0 ? trustUpdate * -1 : trustUpdate;
             this._networkOutputTrustChance = 0;
         }
+
         if (this._networkOutputTrustChance < 0)
             this._networkOutputTrustChance = 0;
         if (this._networkOutputTrustChance > 100)
@@ -215,7 +227,50 @@ class GameLearn {
             self.trainer.train(trainSet);
             console.log("Learned that sending the command %s() was a %s idea (score:%s)...", Object.keys(self.commands)[lastNetworkOutputIndex].blue, score >= 0 ? 'good'.green : 'bad'.red, score);
             console.log("Network output trust chance updated to %s% (%s)...", self._networkOutputTrustChance, lastNetworkOutputSortIndex);
+            //console.log("Estava indo para (%s)", ['esquerda', 'direita', 'cima', 'baixo'][lastNetworkInput[self._networkInputMap.indexOf('direction')]]);
+            var minutes = (new Date() - self._started) / 1000 / 60;
+            console.log("%s good/min | %s bad/min", (self._totalGood / minutes).toFixed(2).toString().green, (self._totalBad / minutes).toFixed(2).toString().red);
         }, 10);
+    }
+
+    _save(filename, done){
+        var self = this;
+        fs.unlink(filename, function(err){
+            // Ignore error if no file already exists
+            if (err && err.code !== 'ENOENT') return console.log("Cant load network from file %s", filename);
+
+            var save = {};
+            save.network = self.network.toJSON();
+            save._networkInputMap = self._networkInputMap;
+            save._networkInputValueMap = self._networkInputValueMap;
+            save._networkOutputTrustChance = self._networkOutputTrustChance;
+
+            fs.writeFile(filename, JSON.stringify(save), { flag : 'w' }, function(err) {
+                if (err && err.code !== 'ENOENT') throw err;
+                console.log('Network saved to %s...', filename);
+                if(done) done();
+            });
+        });
+    }
+
+    _load(filename, done){
+        var self = this;
+        fs.readFile(filename, 'utf8', function (err, content) {
+            if(err && err.code !== 'ENOENT') throw err;
+            if(!content) {
+                if(done) done();
+                return console.log("No save data on %s", filename);
+            }
+            var save = JSON.parse(content);
+
+            self._networkInputMap = save._networkInputMap;
+            self._networkInputValueMap = save._networkInputValueMap;
+            self._networkOutputTrustChance = save._networkOutputTrustChance;
+            self._network = save.network;
+            self.trainer = new Trainer(self.network);
+            console.log("Network loaded...");
+            if(done) done();
+        });
     }
 }
 
