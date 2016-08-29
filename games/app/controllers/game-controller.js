@@ -20,7 +20,7 @@ const Player = require('../models/player');
 const io = require('socket.io-client');
 
 //4
-const GameLearn = require('../../../../learn');
+const GameLearn = require('../../../learn');
 
 
 const _ = require('underscore');
@@ -46,38 +46,14 @@ class GameController {
         this.adminService = new AdminService(this.playerContainer, this.foodService, this.nameService,
             this.notificationService, this.playerService);
         this.playerService.init(this.adminService.getPlayerStartLength.bind(this.adminService));
-        
-        //const playerId = this.nameService.getBotId();
-        //console.log(playerId)
-        // Add new player
-        //const playerSocket = {};
-        //playerSocket.emit = () => console.log(arguments);
-        //var player = new Player();
-        //player.changeDirection(Direction.RIGHT);
 
-       // playerSpawnService = new PlayerSpawnService(boardOccupancyService);
-        //this.boardOccupancyService.addPlayerOccupancy('AI', [new Coordinate(11, 10)]);
-        //playerSpawnService.setupNewSpawn(player, playerLength, requiredFreeLength);
         var playerSocket = io.connect('http://localhost:3000');
         playerSocket.emit(ServerConfig.IO.INCOMING.NEW_PLAYER);
 
         var self = this;
         playerSocket.on(ServerConfig.IO.OUTGOING.NEW_PLAYER_INFO, (playerName, playerColor) => {
-            console.log(playerSocket.id);
             playerAI = self.playerContainer.getPlayer('/#' + playerSocket.id);
         });
-
-        playerSocket.on(ServerConfig.IO.OUTGOING.NOTIFICATION, () => {
-            console.log(arguments);
-        });
-        //console.log(playerSocket);
-        //var player = this.playerService.addPlayer(playerSocket, 'AI');
-
-        //var bot = new Player();
-        //bot._segments = [new Coordinate(10, 10)];
-        //bot.changeDirection(Direction.RIGHT);
-        //this.boardOccupancyService = new BoardOccupancyService();
-
     }
 
     // Listen for Socket IO events
@@ -144,7 +120,8 @@ class GameController {
             }
             this.botDirectionService.changeDirectionIfInDanger(bot);
         }
-        if(playerAI){
+
+        if (playerAI) {
             var board = this.boardOccupancyService.getBoard();
             var metrics = {
                 size: playerAI.growAmount + playerAI._segments.length,
@@ -154,7 +131,8 @@ class GameController {
                 segments: playerAI._segments,
                 board: board
             };
-            if(!ai) ai = new GameLearn({
+            if (!ai) ai = new GameLearn({
+                file: 'snakeNetwork.json',
                 metrics: metrics,
                 commands: {
                     moveUp: () => {
@@ -171,11 +149,11 @@ class GameController {
                     },
                     moveRight: () => {
                         console.log("Goin to the right...");
-                        playerAI.changeDirection(Direction.RIGHT); 
+                        playerAI.changeDirection(Direction.RIGHT);
                     },
-                    wait: () => {
-                        console.log("Waiting...");   
-                    }
+                    /*wait: () => {
+                        console.log("Waiting...");
+                    }*/
                 },
                 score: {
                     size: {
@@ -184,19 +162,13 @@ class GameController {
                     },
                     moveCounter: {
                         diff: 1,
-                        score: 2
+                        score: 1,
+                        disableBiggerDifference: true,
                     }
                 }
             });
-            console.log("Thinking...");
             var nextCommand = ai.getCommand(metrics);
             nextCommand();
-
-
-            //console.log(nextCommand.toString());
-
-            // Parse board
-            //this.botDirectionService.changeDirectionIfInDanger(playerAI);
         }
 
         this.playerService.movePlayers();
@@ -217,7 +189,7 @@ class GameController {
         };
         this.notificationService.broadcastGameState(gameState);
 
-        setTimeout(this.runGameCycle.bind(this), 1000 / this.adminService.getGameSpeed());
+        setTimeout(this.runGameCycle.bind(this), 100);
     }
 
     /*******************************
@@ -240,7 +212,6 @@ class GameController {
     }
 
     _keyDown(playerId, keyCode) {
-        console.log(playerId);
         GameControlsService.handleKeyDown(this.playerContainer.getPlayer(playerId), keyCode);
     }
 }
