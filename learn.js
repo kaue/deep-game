@@ -11,15 +11,15 @@ const Trainer = synaptic.Trainer;
 
 const DefaultMetrics = {
     /*iteration: {
-        value: 0,
-        set: (iteration) => iteration += 1
-    }*/
+     value: 0,
+     set: (iteration) => iteration += 1
+     }*/
 };
 const DefaultScore = {
     /*iteration: {
-        diff: -1,
-        score: 1
-    }*/
+     diff: -1,
+     score: 1
+     }*/
 };
 const DefaultScoreHelper = {
     diff: 1,
@@ -59,21 +59,24 @@ class GameLearn {
         var networkInput = this._mapNetworkInput(options.metrics);
 
         var inputLayer = new Layer(networkInput.length);
-        var hiddenLayer = new Layer(50);
-        var hiddenLayer2 = new Layer(50);
+        var hiddenLayer = new Layer(networkInput.length);
+        var hiddenLayer2 = new Layer(networkInput.length);
+        var hiddenLayer3 = new Layer(10);
+        var hiddenLayer4 = new Layer(6);
         var outputLayer = new Layer(objectSize(options.commands));
 
         inputLayer.project(hiddenLayer);
         hiddenLayer.project(hiddenLayer2);
         hiddenLayer2.project(outputLayer);
-
+        //hiddenLayer3.project(outputLayer);
+        //hiddenLayer4.project(outputLayer);
         this.network = new Network({
             input: inputLayer,
             hidden: [hiddenLayer, hiddenLayer2],
             output: outputLayer
         });
         this.trainer = new Trainer(this.network);
-        if(options.file) this._load(options.file, () => {
+        if (options.file) this._load(options.file, () => {
             (function save() {
                 self._save(self.file, () => setTimeout(save, 120000));
             })();
@@ -123,6 +126,7 @@ class GameLearn {
                 break;
             }
         }
+        selectedOutput = 0;
         networkOutputMap.forEach((output) => console.log("%s% chance of sending %s()", parseInt(output.chance), Object.keys(self.commands)[output.index].blue));
         // Get the biggest network output index        
         var selectedNetworkOutputIndex = networkOutputMap[selectedOutput].index;
@@ -162,6 +166,7 @@ class GameLearn {
             if (valueMap.indexOf(value) == -1) valueMap.push(value);
             return valueMap.indexOf(value) + 1;
         }
+
         var nameDivisor = ".";
         (function parse(name, value) {
             if (_.isNumber(value))
@@ -188,6 +193,7 @@ class GameLearn {
             if (!scoreHelper) scoreHelper = DefaultScoreHelper;
             if (scoreHelper.score == 0) return;
             if (scoreHelper.min > networkInput[index] || scoreHelper.max < networkInput[index]) return;
+            if(scoreHelper.equals != null && scoreHelper.last && networkInput[index] == scoreHelper.equals) return score += scoreHelper.score;
 
             if (difference > 0 && !scoreHelper.disableBiggerDifference) {
                 score += scoreHelper.score * scoreHelper.diff;
@@ -207,7 +213,15 @@ class GameLearn {
         } else {
             this._totalBad += 1;
             propperNetworkOutput = Array.apply(null, Array(objectSize(this.commands))).map(Number.prototype.valueOf, 1);
+            var outputIndexArray = [];
+            for (var i = 0; i <= objectSize(this.commands) - 1; i++)
+                outputIndexArray.push(i);
+            outputIndexArray.splice(lastNetworkOutputIndex, 1);
+
             propperNetworkOutput[lastNetworkOutputIndex] = 0;
+            // Select a random command
+            //propperNetworkOutput[_.sample(outputIndexArray)] = 1;
+
             this._networkOutputTrustChance += lastNetworkOutputSortIndex == 0 ? trustUpdate * -1 : trustUpdate;
             this._networkOutputTrustChance = 0;
         }
@@ -229,13 +243,21 @@ class GameLearn {
             console.log("Network output trust chance updated to %s% (%s)...", self._networkOutputTrustChance, lastNetworkOutputSortIndex);
             //console.log("Estava indo para (%s)", ['esquerda', 'direita', 'cima', 'baixo'][lastNetworkInput[self._networkInputMap.indexOf('direction')]]);
             var minutes = (new Date() - self._started) / 1000 / 60;
-            console.log("%s good/min | %s bad/min", (self._totalGood / minutes).toFixed(2).toString().green, (self._totalBad / minutes).toFixed(2).toString().red);
+            console.log("%s good/min | %s bad/min | %s good/bad ratio", (self._totalGood / minutes).toFixed(2).toString().green, (self._totalBad / minutes).toFixed(2).toString().red, (self._totalGood / self._totalBad).toFixed(2).toString().yellow);
+            require('console.table');
+            console.table(trainSet[0].input.map((value, index) => {
+                return {
+                    input: self._networkInputMap[index],
+                    value: value
+                };
+            }));
+            console.log(trainSet[0].output);
         }, 10);
     }
 
-    _save(filename, done){
+    _save(filename, done) {
         var self = this;
-        fs.unlink(filename, function(err){
+        fs.unlink(filename, function (err) {
             // Ignore error if no file already exists
             if (err && err.code !== 'ENOENT') return console.log("Cant load network from file %s", filename);
 
@@ -245,20 +267,20 @@ class GameLearn {
             save._networkInputValueMap = self._networkInputValueMap;
             save._networkOutputTrustChance = self._networkOutputTrustChance;
 
-            fs.writeFile(filename, JSON.stringify(save), { flag : 'w' }, function(err) {
+            fs.writeFile(filename, JSON.stringify(save), {flag: 'w'}, function (err) {
                 if (err && err.code !== 'ENOENT') throw err;
                 console.log('Network saved to %s...', filename);
-                if(done) done();
+                if (done) done();
             });
         });
     }
 
-    _load(filename, done){
+    _load(filename, done) {
         var self = this;
         fs.readFile(filename, 'utf8', function (err, content) {
-            if(err && err.code !== 'ENOENT') throw err;
-            if(!content) {
-                if(done) done();
+            if (err && err.code !== 'ENOENT') throw err;
+            if (!content) {
+                if (done) done();
                 return console.log("No save data on %s", filename);
             }
             var save = JSON.parse(content);
@@ -269,7 +291,7 @@ class GameLearn {
             self._network = save.network;
             self.trainer = new Trainer(self.network);
             console.log("Network loaded...");
-            if(done) done();
+            if (done) done();
         });
     }
 }

@@ -193,6 +193,7 @@ class PlayerService {
     respawnPlayer(playerId) {
         console.log("Respawn " + playerId);
         const player = this.playerContainer.getPlayer(playerId);
+        player.deaths += 1;
         this.playerSpawnService.setupNewSpawn(player, this.getPlayerStartLength(),
             ServerConfig.SPAWN_TURN_LEEWAY);
         this.playerStatBoard.resetScore(player.id);

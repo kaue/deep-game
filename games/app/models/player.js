@@ -7,6 +7,7 @@ class Player {
         this.color = color;
         this.growAmount = 0;
         this.moveCounter = 0;
+        this.deaths = 0;
     }
 
     changeDirection(newDirection) {
