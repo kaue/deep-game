@@ -265,11 +265,11 @@ class GameController {
                         score: -1,
                         last: true
                     },
-                    closestFoodDistance: {
+                    /*closestFoodDistance: {
                         diff: -1,
                         score: 1,
                         //disableBiggerDifference: true
-                    },
+                    },*/
                     /*stupidCount: {
                         diff: -1,
                         score: 1
@@ -306,7 +306,7 @@ class GameController {
         };
         this.notificationService.broadcastGameState(gameState);
 
-        setTimeout(this.runGameCycle.bind(this), 250);
+        setTimeout(this.runGameCycle.bind(this), 1);
     }
 
     /*******************************

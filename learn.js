@@ -126,7 +126,7 @@ class GameLearn {
                 break;
             }
         }
-        selectedOutput = 0;
+        //selectedOutput = 0;
         networkOutputMap.forEach((output) => console.log("%s% chance of sending %s()", parseInt(output.chance), Object.keys(self.commands)[output.index].blue));
         // Get the biggest network output index        
         var selectedNetworkOutputIndex = networkOutputMap[selectedOutput].index;

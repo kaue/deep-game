@@ -4,8 +4,6 @@
     <list default="true" id="7f99f9e2-2e07-4436-be7f-fdb6a7334239" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/games/app/controllers/game-controller.js" afterPath="$PROJECT_DIR$/games/app/controllers/game-controller.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/games/app/models/player.js" afterPath="$PROJECT_DIR$/games/app/models/player.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/games/app/services/player-service.js" afterPath="$PROJECT_DIR$/games/app/services/player-service.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/learn.js" afterPath="$PROJECT_DIR$/learn.js" />
     </list>
     <ignored path="nn-test.iws" />
@@ -30,8 +28,8 @@
       <file leaf-file-name="game-controller.js" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/games/app/controllers/game-controller.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="266">
-              <caret line="308" column="52" selection-start-line="308" selection-start-column="52" selection-end-line="308" selection-end-column="52" />
+            <state relative-caret-position="116">
+              <caret line="255" column="25" selection-start-line="255" selection-start-column="25" selection-end-line="255" selection-end-column="25" />
               <folding />
             </state>
           </provider>
@@ -40,11 +38,11 @@
       <file leaf-file-name="learn.js" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/learn.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="158">
-              <caret line="218" column="63" selection-start-line="218" selection-start-column="63" selection-end-line="218" selection-end-column="63" />
+            <state relative-caret-position="-592">
+              <caret line="128" column="10" selection-start-line="128" selection-start-column="10" selection-end-line="128" selection-end-column="10" />
               <folding>
                 <element signature="n#!!block;n#_mapNetworkInput#0;n#GameLearn#0" expanded="false" />
-                <marker date="1472518716000" expanded="true" signature="11452:11460" ph="{...}" />
+                <marker date="1472519408000" expanded="true" signature="11454:11462" ph="{...}" />
               </folding>
             </state>
           </provider>
@@ -125,8 +123,8 @@
         <option value="$PROJECT_DIR$/game.js" />
         <option value="$PROJECT_DIR$/games/app/models/player.js" />
         <option value="$PROJECT_DIR$/games/app/services/player-service.js" />
-        <option value="$PROJECT_DIR$/learn.js" />
         <option value="$PROJECT_DIR$/games/app/controllers/game-controller.js" />
+        <option value="$PROJECT_DIR$/learn.js" />
       </list>
     </option>
   </component>
@@ -386,12 +384,12 @@
       <option name="presentableId" value="Default" />
       <updated>1472317837133</updated>
       <workItem from="1472317838772" duration="22489000" />
-      <workItem from="1472394072642" duration="26179000" />
+      <workItem from="1472394072642" duration="26567000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="48668000" />
+    <option name="totallyTimeSpent" value="49056000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1280" height="728" extended-state="0" />
@@ -449,7 +447,7 @@
           <caret line="3" column="5" selection-start-line="3" selection-start-column="5" selection-end-line="3" selection-end-column="5" />
           <folding>
             <element signature="n#!!block;n#_mapNetworkInput#0;n#GameLearn#0" expanded="false" />
-            <marker date="1472518716000" expanded="true" signature="11452:11460" ph="{...}" />
+            <marker date="1472519408000" expanded="true" signature="11454:11462" ph="{...}" />
           </folding>
         </state>
       </provider>
@@ -777,19 +775,19 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/learn.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="158">
-          <caret line="218" column="63" selection-start-line="218" selection-start-column="63" selection-end-line="218" selection-end-column="63" />
+        <state relative-caret-position="-592">
+          <caret line="128" column="10" selection-start-line="128" selection-start-column="10" selection-end-line="128" selection-end-column="10" />
           <folding>
             <element signature="n#!!block;n#_mapNetworkInput#0;n#GameLearn#0" expanded="false" />
-            <marker date="1472518716000" expanded="true" signature="11452:11460" ph="{...}" />
+            <marker date="1472519408000" expanded="true" signature="11454:11462" ph="{...}" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/games/app/controllers/game-controller.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="266">
-          <caret line="308" column="52" selection-start-line="308" selection-start-column="52" selection-end-line="308" selection-end-column="52" />
+        <state relative-caret-position="116">
+          <caret line="255" column="25" selection-start-line="255" selection-start-column="25" selection-end-line="255" selection-end-column="25" />
           <folding />
         </state>
       </provider>
