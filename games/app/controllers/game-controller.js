@@ -29,6 +29,8 @@ var ai = null;
 var stupidCount = 0;
 var numberOfCommands = 0;
 var lastDeathCount = 0;
+var started = null;
+var totalCommands = 0;
 class GameController {
 
     constructor() {
@@ -184,23 +186,70 @@ class GameController {
                 down: this.boardOccupancyService.board[playerPosition.x][playerPosition.y + 1].wall
             };
 
-            if(!blocked.left)
+            if (!blocked.left)
                 blocked.left = !!_.findWhere(playerAI._segments, {x: playerPosition.x - 1, y: playerPosition.y});
-            if(!blocked.right)
+            if (!blocked.right)
                 blocked.right = !!_.findWhere(playerAI._segments, {x: playerPosition.x + 1, y: playerPosition.y});
-            if(!blocked.up)
+            if (!blocked.up)
                 blocked.up = !!_.findWhere(playerAI._segments, {x: playerPosition.x, y: playerPosition.y - 1});
-            if(!blocked.down)
+            if (!blocked.down)
                 blocked.down = !!_.findWhere(playerAI._segments, {x: playerPosition.x, y: playerPosition.y + 1});
 
             var totalBlocks = 0;
-            for(var blockDireciton in blocked)
-                if(blocked[blockDireciton]) totalBlocks += 1;
+            for (var blockDireciton in blocked)
+                if (blocked[blockDireciton]) totalBlocks += 1;
             var playerDied = false;
-            if(lastDeathCount < playerAI.deaths){
-                console.log("DEATH UPDATED");
+            if (lastDeathCount < playerAI.deaths) {
                 playerDied = true;
                 lastDeathCount = playerAI.deaths;
+            }
+
+            var relativeSegments = playerAI._segments.map((coordinate) => {
+                return {
+                    x: playerPosition.x - coordinate.x,
+                    y: playerPosition.y - coordinate.y
+                }
+            });
+
+            var visionGrid = [];
+            var gridRadius = 2;
+            var visionGridCount = 0;
+            for (var y = playerPosition.y - gridRadius; y <= playerPosition.y + gridRadius; y++) {
+                visionGrid[y] = [];
+                for (var x = playerPosition.x - gridRadius; x <= playerPosition.x + gridRadius; x++) {
+                    if(y > 0 & x > 0){
+                        visionGrid[y][x] = _.where(playerAI._segments, {x: x, y: y}).length > 0 ? 1 : 0;
+                        if(visionGrid[y][x] == 0 && board[x] && board[x][y])
+                            visionGrid[y][x] = board[x][y] == 24 ? 1 : 0;
+                    }
+                    else
+                        visionGrid[y][x] = 0;
+                    if(visionGrid[y][x] == 1) visionGridCount += 1;
+                }
+            }
+            //console.table(board);
+            //console.log([board[playerPosition.x + 1][playerPosition.y]]);
+            //console.table(visionGrid);
+            var closestFoodNonBlocked = {
+                distance: 0,
+                needRight: false,
+                needLeft: false,
+                needDown: false,
+                needUp: false
+            };
+            for(var foodIndex = 0; foodIndex < foodArray.length; foodIndex ++){
+                var currentFood = foodArray[foodIndex];
+                if(currentFood.needLeft && blocked.left)
+                    continue;
+                if(currentFood.needRight && blocked.right)
+                    continue;
+                if(currentFood.needDown && blocked.down)
+                    continue;
+                if(currentFood.needUp && blocked.up)
+                    continue;
+                closestFoodNonBlocked = currentFood;
+                closestFoodNonBlocked.index = foodIndex;
+                break;
             }
 
 
@@ -211,81 +260,100 @@ class GameController {
                 direction: direction,
                 //directionBeforeMove: playerAI.directionBeforeMove,
                 //segments: playerAI._segments,
+                //relativeSegments: relativeSegments,
                 //position: playerPosition,
                 blocked: blocked,
                 blockCount: totalBlocks,
-                closestFoodDistance: foodArray[0].distance,
-                closestFood: {needLeft: foodArray[0].needLeft, needRight: foodArray[0].needRight, needUp: foodArray[0].needUp, needDown: foodArray[0].needDown},
+                //closestFoodDistance: foodArray[0].distance,
+                closestFoodDistance: parseInt(_.first(foodArray).distance / 1),
+                closestFood: {
+                    needLeft: _.first(foodArray).needLeft,
+                    needRight: _.first(foodArray).needRight,
+                    needUp: _.first(foodArray).needUp,
+                    needDown: _.first(foodArray).needDown,
+                    /*dneedLeft: !_.first(foodArray).needLeft,
+                    dneedRight: !_.first(foodArray).needRight,
+                    dneedUp: !_.first(foodArray).needUp,
+                    dneedDown: !_.first(foodArray).needDown*/
+                },
+                visionGrid: visionGrid,
+                //visionGridCount: visionGridCount
+                //board: board
                 //stupidCount: stupidCount
             };
-            console.table(metrics);
-            console.table(blocked);
             var validMoves = GameControlsService.getValidNextMove(playerAI.directionBeforeMove);
-
+            if (!ai) started = new Date();
             if (!ai) ai = new GameLearn({
-                file: 'snakeNetwork3.json',
+                file: 'snakeNetwork4.json',
                 metrics: metrics,
                 commands: {
                     moveUp: () => {
                         if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.UP) == null) return stupidCount += 1;
-                        console.log("Goin up...");
+                        //console.log("Goin up...");
                         playerAI.changeDirection(Direction.UP);
                     },
                     moveDown: () => {
                         if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.DOWN) == null) return stupidCount += 1;
-                        console.log("Goin down...");
+                        //console.log("Goin down...");
                         playerAI.changeDirection(Direction.DOWN);
                     },
                     moveLeft: () => {
                         if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.LEFT) == null) return stupidCount += 1;
-                        console.log("Goin to the left...");
+                        //console.log("Goin to the left...");
                         playerAI.changeDirection(Direction.LEFT);
                     },
                     moveRight: () => {
                         if (_.findWhere(GameControlsService.getValidNextMove(playerAI.directionBeforeMove), Direction.RIGHT) == null) return stupidCount += 1;
-                        console.log("Goin to the right...");
+                        //console.log("Goin to the right...");
                         playerAI.changeDirection(Direction.RIGHT);
                     },
                     wait: () => {
-                        console.log("Waiting...");
+                        //console.log("Waiting...");
                     }
                 },
                 score: {
                     size: {
-                        diff: 1,
-                        score: 1
+                     diff: 1,
+                     score: 2,
                     },
                     /*moveCounter: {
-                        diff: 1,
-                        score: 1,
-                        disableBiggerDifference: true
-                    },*/
+                     diff: 1,
+                     score: 1
+                     },*/
                     deathCount: {
                         equals: true,
-                        score: -1,
+                        score: -5,
                         last: true
                     },
+                    blockCount: {
+                        equals: 4,
+                        score: -2,
+                        last: true
+                    },
+                    /*blockCount: {
+                        diff: -1,
+                        score: 2,
+                        disableBiggerDifference: true
+                    },*/
                     /*closestFoodDistance: {
                         diff: -1,
                         score: 1,
                         //disableBiggerDifference: true
                     },*/
                     /*stupidCount: {
-                        diff: -1,
-                        score: 1
-                    }*/
+                     diff: -1,
+                     score: 1
+                     }*/
                 }
             });
-            
-            //if(numberOfCommands < 1000){
-            //    console.log(numberOfCommands);
-                var nextCommand = ai.getCommand(metrics);
-                nextCommand();
-            //    numberOfCommands += 1;
-            //}else{
-            //    process.exit()
-            //}
 
+            var nextCommand = ai.getCommand(metrics);
+            nextCommand();
+            totalCommands += 1;
+            //console.log("deaths / command ratio : %s" + (playerAI.deaths / totalCommands).toFixed(10));
+            process.stdout.clearLine();  // clear current text
+            process.stdout.cursorTo(0);  // move cursor to beginning of line
+            process.stdout.write("deaths / command ratio : " + (playerAI.deaths / totalCommands).toFixed(10));
         }
 
         this.playerService.movePlayers();
@@ -312,7 +380,6 @@ class GameController {
     /*******************************
      *  socket.io handling methods *
      *******************************/
-
     _canvasClicked(socket, x, y) {
         const player = this.playerContainer.getPlayer(socket.id);
         const coordinate = new Coordinate(x, y);

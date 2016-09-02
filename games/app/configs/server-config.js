@@ -10,7 +10,7 @@ const ServerConfig = {
     MAX_BOTS: 20,
     BOT_CHANGE_DIRECTION_PERCENT: 0.1,
     FOOD: {
-        DEFAULT_AMOUNT: 25,
+        DEFAULT_AMOUNT: 30,
         NORMAL: {
             TYPE: 'NORMAL',
             COLOR: 'red',

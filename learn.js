@@ -41,6 +41,7 @@ class GameLearn {
         this._lastNetworkInput = [];
         this._networkInputMap = [];
         this._networkInputValueMap = [];
+        this._memory = [];
         this._networkOutputTrustChance = 15;
         this._started = new Date();
         this._totalBad = 0;
@@ -57,25 +58,49 @@ class GameLearn {
         this.metrics = _.extend(this.metrics, defaultMetrics);
 
         var networkInput = this._mapNetworkInput(options.metrics);
+        this.commandNetworks = [];
+        var index = 0;
+        for (var command in this.commands) {
+            index += 1;
+            var inputLayer = new Layer(networkInput.length);
+            var hiddenLayer = new Layer(networkInput.length);
+            var outputLayer = new Layer(1);
+            inputLayer.project(hiddenLayer);
+            hiddenLayer.project(outputLayer);
+            var network = new Network({
+                input: inputLayer,
+                hidden: [hiddenLayer],
+                output: outputLayer
+            });
+            //var network = new Architect.LSTM(networkInput.length, networkInput.length * 2, 1);
+            //var network = new Architect.Liquid(networkInput.length, networkInput.length * 10, 1, networkInput.length * 15, networkInput.length * 5);
+            var trainer = new Trainer(network);
+            this.commandNetworks.push({
+                network: network,
+                trainer: trainer,
+                name: command,
+                command: this.commands[command]
+            });
+        }
 
-        var inputLayer = new Layer(networkInput.length);
-        var hiddenLayer = new Layer(networkInput.length);
-        var hiddenLayer2 = new Layer(networkInput.length);
-        var hiddenLayer3 = new Layer(10);
-        var hiddenLayer4 = new Layer(6);
-        var outputLayer = new Layer(objectSize(options.commands));
+        /*var inputLayer = new Layer(networkInput.length);
+         var hiddenLayer = new Layer(networkInput.length);
+         var hiddenLayer2 = new Layer(networkInput.length);
+         var hiddenLayer3 = new Layer(10);
+         var hiddenLayer4 = new Layer(6);
+         var outputLayer = new Layer(objectSize(options.commands));
 
-        inputLayer.project(hiddenLayer);
-        hiddenLayer.project(hiddenLayer2);
-        hiddenLayer2.project(outputLayer);
-        //hiddenLayer3.project(outputLayer);
-        //hiddenLayer4.project(outputLayer);
-        this.network = new Network({
-            input: inputLayer,
-            hidden: [hiddenLayer, hiddenLayer2],
-            output: outputLayer
-        });
-        this.trainer = new Trainer(this.network);
+         inputLayer.project(hiddenLayer);
+         hiddenLayer.project(hiddenLayer2);
+         hiddenLayer2.project(outputLayer);
+         //hiddenLayer3.project(outputLayer);
+         //hiddenLayer4.project(outputLayer);
+         this.network = new Network({
+         input: inputLayer,
+         hidden: [hiddenLayer, hiddenLayer2],
+         output: outputLayer
+         });
+         this.trainer = new Trainer(this.network);*/
         if (options.file) this._load(options.file, () => {
             (function save() {
                 self._save(self.file, () => setTimeout(save, 120000));
@@ -95,9 +120,13 @@ class GameLearn {
         // Train
         if (this._lastNetworkInput != null && this._lastNetworkOutputIndex != null && this._lastNetworkOutputSortIndex != null)
             this._train(this._lastNetworkInput, networkInput, this._lastNetworkOutputIndex, this._lastNetworkOutputSortIndex);
-        console.log("Feeding network with %s inputs...", networkInput.length);
-        // Get network output        
-        var networkOutput = this.network.activate(networkInput);
+        //console.log("Feeding network with %s inputs...", networkInput.length);
+        // Get network output
+        //var networkOutput = this.network.activate(networkInput);
+        var networkOutput = this.commandNetworks.map((command) => {
+            //command.output = _.first(command.network.activate(networkInput));
+            return _.first(command.network.activate(networkInput));
+        });
         var maxRandomInt = 0;
         var networkOutputMap = networkOutput.map(function (output, index) {
             var chance = parseInt(output * 100);
@@ -126,10 +155,21 @@ class GameLearn {
                 break;
             }
         }
-        //selectedOutput = 0;
-        networkOutputMap.forEach((output) => console.log("%s% chance of sending %s()", parseInt(output.chance), Object.keys(self.commands)[output.index].blue));
-        // Get the biggest network output index        
-        var selectedNetworkOutputIndex = networkOutputMap[selectedOutput].index;
+
+        var topOutputIndex = networkOutputMap
+            .filter((output) => output.chance == networkOutputMap[0].chance)
+            .map((output) => output.index);
+        //console.table("Selected commands", topOutputIndex.map((index) => Object.keys(self.commands)[index]));
+        var selectedNetworkOutputIndex = _.sample(topOutputIndex);
+        //networkOutputMap.forEach((output) => console.log("%s% chance of sending %s()", (output.chance / maxRandomInt), Object.keys(self.commands)[output.index].blue));
+        /*console.table("getCommand()", networkOutputMap.map((output) => {
+         return {
+         chance: (output.chance / maxRandomInt).toFixed(3),
+         command: Object.keys(self.commands)[output.index]
+         };
+         }));*/
+        // Get the biggest network output index
+        //var selectedNetworkOutputIndex = networkOutputMap[selectedOutput].index;
         // Map the output to the correct command function
         var selectedCommand = this.commands[Object.keys(this.commands)[selectedNetworkOutputIndex]];
         // Update vars
@@ -183,17 +223,20 @@ class GameLearn {
     }
 
     _train(lastNetworkInput, networkInput, lastNetworkOutputIndex, lastNetworkOutputSortIndex) {
-        console.log("Learning...");
+        //console.log("Learning...");
         var inputDifference = networkInput.map((input, index) => input - lastNetworkInput[index]);
         var score = 0;
         var metricIndex = 0;
         var self = this;
         inputDifference.forEach(function (difference, index) {
             var scoreHelper = self.score[self._networkInputMap[index]];
-            if (!scoreHelper) scoreHelper = DefaultScoreHelper;
+            if (!scoreHelper) return;
             if (scoreHelper.score == 0) return;
             if (scoreHelper.min > networkInput[index] || scoreHelper.max < networkInput[index]) return;
-            if(scoreHelper.equals != null && scoreHelper.last && networkInput[index] == scoreHelper.equals) return score += scoreHelper.score;
+            if (scoreHelper.equals != null && scoreHelper.last && networkInput[index] == scoreHelper.equals) {
+                return score += scoreHelper.score;
+            }
+            if (!scoreHelper.score || !scoreHelper.diff) return;
 
             if (difference > 0 && !scoreHelper.disableBiggerDifference) {
                 score += scoreHelper.score * scoreHelper.diff;
@@ -238,20 +281,61 @@ class GameLearn {
             });
         if (trainSet.length == 0) return;
         setTimeout(function () {
-            self.trainer.train(trainSet);
+            //self.trainer.train(trainSet);
+            /*if (score < 0){
+                var outputIndexArray = [];
+                for (var i = 0; i <= objectSize(self.commands) - 1; i++)
+                    outputIndexArray.push(i);
+                outputIndexArray.splice(lastNetworkOutputIndex, 1);
+                var set = [];
+                for(var i = 0; i < 5; i++)
+                    set.push({
+                        input: lastNetworkInput,
+                        output: [0]
+                    });
+                self.commandNetworks[lastNetworkOutputIndex].trainer.train(set);
+                self.commandNetworks[_.sample(outputIndexArray)].trainer.train([{
+                    input: lastNetworkInput,
+                    output: [1]
+                }]);
+            }
+
+            else */
+            if (score != 0)
+                self.commandNetworks[lastNetworkOutputIndex].trainer.train([{
+                    input: lastNetworkInput,
+                    output: [score > 0 ? 1 : 0]
+                }]);
             console.log("Learned that sending the command %s() was a %s idea (score:%s)...", Object.keys(self.commands)[lastNetworkOutputIndex].blue, score >= 0 ? 'good'.green : 'bad'.red, score);
+
+                //console.log("%s good/min | %s bad/min | %s good/bad ratio", (self._totalGood / minutes).toFixed(2).toString().green, (self._totalBad / minutes).toFixed(2).toString().red, (self._totalGood / self._totalBad).toFixed(2).toString().yellow);
+                /*require('console.table');
+                 console.table(trainSet[0].input.map((value, index) => {
+                 return {
+                 input: self._networkInputMap[index],
+                 value: value
+                 };
+                 }));*/
+
+            return;
             console.log("Network output trust chance updated to %s% (%s)...", self._networkOutputTrustChance, lastNetworkOutputSortIndex);
             //console.log("Estava indo para (%s)", ['esquerda', 'direita', 'cima', 'baixo'][lastNetworkInput[self._networkInputMap.indexOf('direction')]]);
+
             var minutes = (new Date() - self._started) / 1000 / 60;
-            console.log("%s good/min | %s bad/min | %s good/bad ratio", (self._totalGood / minutes).toFixed(2).toString().green, (self._totalBad / minutes).toFixed(2).toString().red, (self._totalGood / self._totalBad).toFixed(2).toString().yellow);
-            require('console.table');
-            console.table(trainSet[0].input.map((value, index) => {
+
+
+            console.log("Trained with", trainSet[0].output);
+            var networkOutputMap = self.network.activate(trainSet[0].input).map(function (output, index) {
+                var chance = parseInt(output * 100);
                 return {
-                    input: self._networkInputMap[index],
-                    value: value
+                    name: Object.keys(self.commands)[index],
+                    value: output,
+                    index: index,
+                    chance: chance
                 };
-            }));
-            console.log(trainSet[0].output);
+            });
+            networkOutputMap = _.sortBy(networkOutputMap, 'value').reverse();
+            console.table("Test result", networkOutputMap);
         }, 10);
     }
 
@@ -262,7 +346,20 @@ class GameLearn {
             if (err && err.code !== 'ENOENT') return console.log("Cant load network from file %s", filename);
 
             var save = {};
-            save.network = self.network.toJSON();
+            //save.network = self.network.toJSON();
+            save.commandNetworks = [];
+
+            self.commandNetworks.forEach((command) => {
+                //command.network = command.network.toJSON();
+                //command.trainer = null;
+                return save.commandNetworks.push({
+                    network: command.network.toJSON(),
+                    trainer: null,
+                    name: command.name,
+                    command: command.command
+                });
+            });
+
             save._networkInputMap = self._networkInputMap;
             save._networkInputValueMap = self._networkInputValueMap;
             save._networkOutputTrustChance = self._networkOutputTrustChance;
@@ -288,12 +385,18 @@ class GameLearn {
             self._networkInputMap = save._networkInputMap;
             self._networkInputValueMap = save._networkInputValueMap;
             self._networkOutputTrustChance = save._networkOutputTrustChance;
-            self._network = save.network;
-            self.trainer = new Trainer(self.network);
+            //self._network = Network.fromJSON(save.network);
+            //self.trainer = new Trainer(self.network);
+            self.commandNetworks = save.commandNetworks.map((command) => {
+                command.network = Network.fromJSON(command.network)
+                command.trainer = new Trainer(command.network);
+                return command;
+            });
             console.log("Network loaded...");
             if (done) done();
         });
     }
 }
 
-module.exports = GameLearn;
+module
+    .exports = GameLearn;
